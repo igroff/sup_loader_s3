@@ -1,0 +1,3 @@
+#! /usr/bin/env bash
+curl -s -i http://${TEST_HOST}/json_pants --data '{"someData":"as JSON"}' -H 'Content-Type: application/json' | grep -e 'HTTP/1.1 200 OK' -e 'Transfer-Encoding: chunked'
+curl -s -i http://${TEST_HOST}/json_pants | grep -E -e 'HTTP/1.1 200 OK' -e 'Content-Type: application/json'
