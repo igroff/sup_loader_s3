@@ -10,7 +10,9 @@ var fs              = Promise.promisifyAll(require('fs'));
 var mime            = require('mime');
 
 config = {
-  storageRoot: process.env.STORAGE_ROOT || path.join(__dirname, 'files')
+  storageRoot: process.env.STORAGE_ROOT || path.join(__dirname, 'files'),
+  awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
 }
 
 var app = express();
@@ -46,7 +48,7 @@ app.post('*', function(req, res){
   } else {
     var paths = getPaths(req.path);
     var metaDataFileStream = getWriteStream(paths.metadata);
-    var metaDataFileSaved= new Promise(function(resolve, reject){
+    var metaDataFileSaved = new Promise(function(resolve, reject){
       metaDataFileStream.on('close', resolve);
     });
     metaDataFileStream.write(
@@ -54,7 +56,7 @@ app.post('*', function(req, res){
       function() { metaDataFileStream.close(); }
     );
     dataFileStream = getWriteStream(paths.file);
-    dataFileSaved= new Promise(function(resolve, reject){
+    dataFileSaved = new Promise(function(resolve, reject){
       dataFileStream.on('close', resolve);
     }); 
     req.pipe(dataFileStream);
