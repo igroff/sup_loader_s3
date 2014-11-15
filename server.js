@@ -82,6 +82,14 @@ app.get('*', function(req, res){
     res.set('Content-Type', mime.lookup(paths.file));
     dataStream.pipe(res);
   }); 
+  dataStream.on('error', function(e) {
+    if ( e.code === 'ENOENT' ){
+      res.status(404).send("Resource not found");
+    } else {
+      log.error(e);
+      res.status(500).send("Server error");
+    }
+  });
   
 });
 
