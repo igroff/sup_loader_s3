@@ -1,3 +1,4 @@
+var aws             = require('aws-sdk');
 var express         = require('express');
 var morgan          = require('morgan');
 var connect         = require('connect');
@@ -11,9 +12,7 @@ var fs              = Promise.promisifyAll(require('fs'));
 var mime            = require('mime');
 
 config = {
-  storageRoot: process.env.STORAGE_ROOT || path.join(__dirname, 'files'),
-  awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  storageRoot: process.env.STORAGE_ROOT || path.join(__dirname, 'files')
 };
 
 var app = express();
