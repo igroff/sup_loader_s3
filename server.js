@@ -1,11 +1,12 @@
 var express         = require('express');
 var morgan          = require('morgan');
 var connect         = require('connect');
-var connectTimeout  = require('connect-timeout');
 var log             = require('simplog');
 var busboy          = require('connect-busboy');
 var path            = require('path');
+/* jshint -W079 */
 var Promise         = require('bluebird');
+/* jshint +W079 */
 var fs              = Promise.promisifyAll(require('fs'));
 var mime            = require('mime');
 
@@ -13,7 +14,7 @@ config = {
   storageRoot: process.env.STORAGE_ROOT || path.join(__dirname, 'files'),
   awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
   awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-}
+};
 
 var app = express();
 
@@ -24,8 +25,8 @@ app.use(busboy());
 function getPaths(fileName) {
   var filePath = path.join(config.storageRoot, fileName);
   var baseName = path.basename(filePath);
-  var metaDataFilePath = path.join(config.storageRoot, "." + baseName + ".md")
-  return {file: filePath, metadata: metaDataFilePath}
+  var metaDataFilePath = path.join(config.storageRoot, "." + baseName + ".md");
+  return {file: filePath, metadata: metaDataFilePath};
 }
 
 function getWriteStream(fileName){
@@ -86,7 +87,7 @@ app.get('*', function(req, res){
 });
 
 
-listenPort = process.env.PORT || 3000;
+var listenPort = process.env.PORT || 3000;
 log.info("starting app " + process.env.APP_NAME);
 log.info("listening on " + listenPort);
 app.listen(listenPort);

@@ -6,8 +6,8 @@ watch:
 	DEBUG=true ./node_modules/.bin/supervisor --watch 'src/,./' --ignore "./test"  -e "litcoffee,coffee,js" --exec make run-server
 
 lint:
-	find ./src -name '*.coffee' | xargs ./node_modules/.bin/coffeelint -f ./etc/coffeelint.conf
-	find ./src -name '*.js' | xargs ./node_modules/.bin/jshint 
+	find . -not -regex '^\./node_modules/.*' -not -regex '^\./\.git.*' -name '*.coffee' | xargs ./node_modules/.bin/coffeelint -f ./etc/coffeelint.conf
+	find . -not -regex '^\./node_modules/.*' -not -regex '^\./\.git.*' -name '*.js' | xargs ./node_modules/.bin/jshint 
 
 install: node_modules/
 
