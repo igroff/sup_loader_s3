@@ -1,0 +1,2 @@
+#! /usr/bin/env bash
+curl -s -i http://${TEST_HOST}/this_shouldnt_exist | grep -E -e 'HTTP/1.1 404 Not Found' -e 'Resource not found' -e 'text/html'

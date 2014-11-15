@@ -83,6 +83,7 @@ app.get('*', function(req, res){
     dataStream.pipe(res);
   }); 
   dataStream.on('error', function(e) {
+    res.set('Content-Type', 'text/html');
     if ( e.code === 'ENOENT' ){
       res.status(404).send("Resource not found");
     } else {
