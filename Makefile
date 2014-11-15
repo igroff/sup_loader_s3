@@ -22,3 +22,8 @@ run-server: build_output/
 
 clean:
 	rm -rf ./node_modules/
+
+test:
+	rm -rf ./files
+	mkdir ./files
+	difftest run
