@@ -47,7 +47,7 @@ app.post('*', function(req, res){
     });
     req.pipe(req.busboy);
   } else {
-    function storeRequest(paths){
+    function storeRequestData(paths){
       var metaDataFileStream = getWriteStream(paths.metadata);
       var metaDataFileSaved = new Promise(function(resolve, reject){
         metaDataFileStream.on('close', resolve);
@@ -101,11 +101,9 @@ app.post('*', function(req, res){
     .resolve(getPaths(req.path))
     .then(dieIfFileExists)
     .then(makeDirectories)
-    .then(storeRequest)
+    .then(storeRequestData)
     .then(function(){ res.end(); })
-    .catch(FileExists, function(e){
-      res.status(403).send("File exists");
-    })
+    .catch(FileExists, function(e){ res.status(403).send("File exists"); })
     .catch(function(e){
       log.error("error writing file: ", e);
       res.status(500).send(e);
