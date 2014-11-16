@@ -86,7 +86,7 @@ app.post('*', function(req, res){
     .resolve(getPaths(req.path))
     .then(makeDirectories)
     .then(storeRequest)
-    .then(function(){ res.end(undefined); })
+    .then(function(){ res.end(); })
     .catch(function(e){
         log.error("error writing file: ", e);
         res.status(500).send(e);
