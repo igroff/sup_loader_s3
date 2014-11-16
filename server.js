@@ -10,6 +10,7 @@ var Promise         = require('bluebird');
 /* jshint +W079 */
 var fs              = Promise.promisifyAll(require('fs'));
 var mime            = require('mime');
+var mkdirp          = require('mkdirp');
 
 config = {
   storageRoot: process.env.STORAGE_ROOT || path.join(__dirname, 'files')
@@ -46,21 +47,51 @@ app.post('*', function(req, res){
     });
     req.pipe(req.busboy);
   } else {
-    var paths = getPaths(req.path);
-    var metaDataFileStream = getWriteStream(paths.metadata);
-    var metaDataFileSaved = new Promise(function(resolve, reject){
-      metaDataFileStream.on('close', resolve);
-    });
-    metaDataFileStream.write(
-      JSON.stringify({mimetype:req.get('Content-Type')}),
-      function() { metaDataFileStream.close(); }
+    function storeRequest(paths){
+      var metaDataFileStream = getWriteStream(paths.metadata);
+      var metaDataFileSaved = new Promise(function(resolve, reject){
+        metaDataFileStream.on('close', resolve);
+        metaDataFileStream.on('error', reject);
+      });
+      metaDataFileStream.write(
+        JSON.stringify({mimetype:req.get('Content-Type')}),
+        function() { metaDataFileStream.close(); }
+      );
+
+      dataFileStream = getWriteStream(paths.file);
+      dataFileSaved = new Promise(function(resolve, reject){
+        dataFileStream.on('close', resolve);
+        dataFileStream.on('error', reject);
+      }); 
+      req.pipe(dataFileStream);
+      return Promise.all([metaDataFileSaved, dataFileSaved]);
+    }
+
+    // promisify hates mkdirp, so... manual
+    function makeDirectories(paths){
+      return new Promise(function(resolve, reject){
+        // files go into the same path structure so one is just as good
+        // as the other (i.e. paths.file or paths.metadata)
+        mkdirp(path.dirname(paths.file), function(e){
+          if (e){
+            reject(e);
+          } else {
+            resolve(paths);
+          }
+        })
+      });
+    };
+
+    Promise
+    .resolve(getPaths(req.path))
+    .then(makeDirectories)
+    .then(storeRequest)
+    .then(function(){ res.end(undefined); })
+    .catch(function(e){
+        log.error("error writing file: ", e);
+        res.status(500).send(e);
+      }
     );
-    dataFileStream = getWriteStream(paths.file);
-    dataFileSaved = new Promise(function(resolve, reject){
-      dataFileStream.on('close', resolve);
-    }); 
-    req.pipe(dataFileStream);
-    Promise.all([metaDataFileSaved, dataFileSaved]).then(res.end());
   }
 });
 

@@ -1,0 +1,4 @@
+#! /usr/bin/env bash
+# vi:ft=sh
+touch files/fake_movie.mov
+curl -s -i http://${TEST_HOST}/fake_movie.mov | grep -E -e 'Content-Type: video/quicktime' -e 'HTTP/1.1 200 OK'
