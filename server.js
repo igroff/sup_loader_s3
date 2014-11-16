@@ -24,9 +24,9 @@ app.use(busboy());
 
 function getPaths(fileName) {
   var filePath = path.join(config.storageRoot, fileName);
-  var baseName = path.basename(filePath);
-  var metaDataFilePath = path.join(config.storageRoot, "." + baseName + ".md");
-  return {file: filePath, metadata: metaDataFilePath};
+  var basename = path.basename(filePath);
+  var metaDataFilePath = path.join(config.storageRoot, "." + basename + ".md");
+  return {dirname: path.dirname(filePath), basename: basename, file: filePath, metadata: metaDataFilePath};
 }
 
 function getWriteStream(fileName){
@@ -72,7 +72,7 @@ app.post('*', function(req, res){
       return new Promise(function(resolve, reject){
         // files go into the same path structure so one is just as good
         // as the other (i.e. paths.file or paths.metadata)
-        mkdirp(path.dirname(paths.file), function(e){
+        mkdirp(paths.dirname, function(e){
           if (e){
             reject(e);
           } else {
@@ -82,16 +82,35 @@ app.post('*', function(req, res){
       });
     };
 
+    function dieIfFileExists(paths){
+      return new Promise(function(resolve, reject){
+        fs.exists(paths.file, function(exists){
+          console.log("checking, exists ", exists );
+          if (exists){
+            reject(new Error("FileExists"));
+          } else {
+            resolve(paths);
+          }
+        }
+       );});
+    };
+       
+    function FileExists(e) { return e.message === "FileExists"; }
+
     Promise
     .resolve(getPaths(req.path))
+    .then(dieIfFileExists)
     .then(makeDirectories)
     .then(storeRequest)
     .then(function(){ res.end(); })
+    .catch(FileExists, function(e){
+      res.status(403).send("File exists");
+    })
     .catch(function(e){
-        log.error("error writing file: ", e);
-        res.status(500).send(e);
-      }
-    );
+      log.error("error writing file: ", e);
+      res.status(500).send(e);
+    });
+    
   }
 });
 
