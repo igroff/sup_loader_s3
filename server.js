@@ -30,7 +30,7 @@ function getPaths(fileName) {
 }
 
 function getWriteStream(fileName){
-  return fs.createWriteStream(fileName);
+  return fs.createWriteStream(fileName, {flags: "wx"});
 }
 function getReadStream(fileName){
   return fs.createReadStream(fileName);
@@ -48,7 +48,6 @@ app.post('*', function(req, res){
     req.pipe(req.busboy);
   } else {
     function storeRequestData(paths){
-      console.log("paths: ", paths);
       var metaDataFileStream = getWriteStream(paths.metadata);
       var metaDataFileSaved = new Promise(function(resolve, reject){
         metaDataFileStream.on('close', resolve);
@@ -74,30 +73,17 @@ app.post('*', function(req, res){
       return mkdirp.mkdirpAsync(paths.dirname).return(paths);
     };
 
-    function dieIfFileExists(paths){
-      return new Promise(function(resolve, reject){
-        fs.exists(paths.file, function(exists){
-          if (exists){
-            reject(new Error("FileExists"));
-          } else {
-            resolve(paths);
-          }
-        }
-       );});
-    };
-       
     // exception predicate 
-    function FileExists(e) { return e.message === "FileExists"; }
+    function FileExists(e) { return e.code === "EEXIST"; }
 
     Promise
     .resolve(getPaths(req.path))
-    .then(dieIfFileExists)
     .then(makeDirectories)
     .then(storeRequestData)
     .then(function(){ res.end(); })
     .catch(FileExists, function(e){ res.status(403).send("File exists"); })
     .catch(function(e){
-      log.error("error writing file: ");
+      log.error("error writing file: %j", e);
       log.error(e.stack);
       res.status(500).send(e);
     });
