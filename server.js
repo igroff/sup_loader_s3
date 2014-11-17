@@ -65,7 +65,7 @@ app.post('*', function(req, res){
         dataFileStream.on('error', reject);
       }); 
       req.pipe(dataFileStream);
-      return Promise.all([metaDataFileSaved, dataFileSaved]);
+      return Promise.join(metaDataFileSaved, dataFileSaved);
     }
 
     function makeDirectories(paths){
