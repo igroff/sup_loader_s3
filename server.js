@@ -10,7 +10,7 @@ var Promise         = require('bluebird');
 /* jshint +W079 */
 var fs              = Promise.promisifyAll(require('fs'));
 var mime            = require('mime');
-var mkdirp          = require('mkdirp');
+var mkdirp          = Promise.promisifyAll(require('mkdirp'));
 
 config = {
   storageRoot: process.env.STORAGE_ROOT || path.join(__dirname, 'files')
@@ -48,6 +48,7 @@ app.post('*', function(req, res){
     req.pipe(req.busboy);
   } else {
     function storeRequestData(paths){
+      console.log("paths: ", paths);
       var metaDataFileStream = getWriteStream(paths.metadata);
       var metaDataFileSaved = new Promise(function(resolve, reject){
         metaDataFileStream.on('close', resolve);
@@ -67,25 +68,15 @@ app.post('*', function(req, res){
       return Promise.all([metaDataFileSaved, dataFileSaved]);
     }
 
-    // promisify hates mkdirp, so... manual
     function makeDirectories(paths){
-      return new Promise(function(resolve, reject){
-        // files go into the same path structure so one is just as good
-        // as the other (i.e. paths.file or paths.metadata)
-        mkdirp(paths.dirname, function(e){
-          if (e){
-            reject(e);
-          } else {
-            resolve(paths);
-          }
-        })
-      });
+      // mkdirp returns the name of the directory we created, but
+      // we really want paths as our return so everyone can use it  
+      return mkdirp.mkdirpAsync(paths.dirname).return(paths);
     };
 
     function dieIfFileExists(paths){
       return new Promise(function(resolve, reject){
         fs.exists(paths.file, function(exists){
-          console.log("checking, exists ", exists );
           if (exists){
             reject(new Error("FileExists"));
           } else {
@@ -95,6 +86,7 @@ app.post('*', function(req, res){
        );});
     };
        
+    // exception predicate 
     function FileExists(e) { return e.message === "FileExists"; }
 
     Promise
@@ -105,7 +97,8 @@ app.post('*', function(req, res){
     .then(function(){ res.end(); })
     .catch(FileExists, function(e){ res.status(403).send("File exists"); })
     .catch(function(e){
-      log.error("error writing file: ", e);
+      log.error("error writing file: ");
+      log.error(e.stack);
       res.status(500).send(e);
     });
     
