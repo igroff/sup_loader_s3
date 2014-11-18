@@ -52,30 +52,41 @@ function getReadStream(fileName){
 }
 
 if (config.usingS3){
-  function getObjectKeyFromPath(filePath){
-    // remove the bucket name, since that's independent of 
-    // the object key in s3 calls
-    return filePath.replace(config.storageRoot + "/", "");
-  }
   // overwrite our stream methods with s3 specific ones
   function getWriteStream(fileName){
     var client = s3Stream(new AWS.S3());
-    console.log("writeStream: ", fileName);
-    var options = {Bucket:config.storageRoot, Key:getObjectKeyFromPath(fileName)};
-    log.debug("getWriteStream options: ", options);
-    var uploadStream = client.upload(options);
+    // the fileName is a full path like structure including the
+    // root, which we're using for our bucket name, so we'll
+    // remove the root from the path as it will be passed later
+    // as 'Bucket'
+    fileName = fileName.replace(config.storageRoot+"/", "");
+    var uploadStream = client.upload(
+      {Bucket:config.storageRoot, Key:fileName}
+    );
     uploadStream.on('error', log.error);
     return uploadStream;
   }
   function getReadStream(fileName){
     var s3 = new AWS.S3();
-    var options = {Bucket:config.storageRoot, Key:getObjectKeyFromPath(fileName)};
-    log.debug("getObject options: ", options);
-    return s3.getObject(options).createReadStream();
+    // the fileName is a full path like structure including the
+    // root, which we're using for our bucket name, so we'll
+    // remove the root from the path as it will be passed later
+    // as 'Bucket'
+    fileName = fileName.replace(config.storageRoot+"/", "");
+    return s3.getObject(
+      {Bucket:config.storageRoot, Key:fileName}
+    ).createReadStream();
   }
 
   function headObject(paths){
     var s3 = new AWS.S3();
+    // the fileName is a full path like structure including the
+    // root, which we're using for our bucket name, so we'll
+    // remove the root from the path as it will be passed later
+    // as 'Bucket'
+    var fileName = paths.file;
+    fileName = fileName.replace(config.storageRoot+"/", "");
+    log.debug("Checking for Object existence: ", fileName);
     return new Promise(function(resolve, reject){
       var callback = function(err, data){
         if (err) { 
@@ -91,9 +102,10 @@ if (config.usingS3){
           resolve(paths);
         }
       };
-      var options = {Bucket:config.storageRoot, Key:getObjectKeyFromPath(paths.file)};
-      log.debug("headObject options: ", options);
-      s3.headObject(options ,callback);
+      s3.headObject(
+        {Bucket:config.storageRoot, Key:fileName}
+        ,callback
+      );
     });
   }
 
@@ -117,73 +129,68 @@ function makeDirectories(paths){
 // exception predicate 
 function FileExists(e) { return e.code === "EEXIST"; }
 
-function storeMultipartRequestData(req, res){
-  return function doStore(paths){
-    req.busboy.on('finish', function(){ res.end(); });
-    // write files
-    req.busboy.on('file', function(fieldname, file, filename, encoding, mimetype) {
-      file.pipe(getWriteStream(path.join(config.storageRoot, path.dirname(paths.fileName), filename)));
-    });
-    req.pipe(req.busboy);
-  }
-}
-function storeRawRequestData(req, res){
-  return function doStore(paths){
-    var metaDataFileStream = getWriteStream(paths.metadata);
-    var metaDataFileSaved = new Promise(function(resolve, reject){
-      metaDataFileStream.on('close', resolve);
-      metaDataFileStream.on('error', reject);
-    });
-    metaDataFileStream.write(
-      JSON.stringify({mimetype:req.get('Content-Type')}),
-      function() { metaDataFileStream.close(); }
-    );
-
-    dataFileStream = getWriteStream(paths.file);
-    dataFileSaved = new Promise(function(resolve, reject){
-      dataFileStream.on('close', resolve);
-      dataFileStream.on('error', reject);
-    }); 
-    req.pipe(dataFileStream);
-    return Promise.join(metaDataFileSaved, dataFileSaved);
-  }
-}
 // respond
 app.post('*', function(req, res){
-  var storeRequestData = null;
   if (req.is('multipart/form-data')){
     log.debug("multi part request");
-    storeRequestData = storeMultipartRequestData(req, res);
+    var storeRequestData = function(paths){
+      req.busboy.on('finish', function(){ res.end(); });
+      // write files
+      req.busboy.on('file', function(fieldname, file, filename, encoding, mimetype) {
+        file.pipe(getWriteStream(path.join(config.storageRoot, paths.file, filename)));
+      });
+      req.pipe(req.busboy);
+    }
   } else {
-    storeRequestData = storeRawRequestData(req, res);
+    var storeRequestData = function(paths){
+      var metaDataFileStream = getWriteStream(paths.metadata);
+      var metaDataFileSaved = new Promise(function(resolve, reject){
+        metaDataFileStream.on('close', resolve);
+        metaDataFileStream.on('error', reject);
+      });
+      metaDataFileStream.write(
+        JSON.stringify({mimetype:req.get('Content-Type')}),
+        function() { metaDataFileStream.close(); }
+      );
+
+      dataFileStream = getWriteStream(paths.file);
+      dataFileSaved = new Promise(function(resolve, reject){
+        dataFileStream.on('close', resolve);
+        dataFileStream.on('error', reject);
+      }); 
+      req.pipe(dataFileStream);
+      return Promise.join(metaDataFileSaved, dataFileSaved);
+    }
   }
-  if (config.usingS3) {
-    log.debug("using s3 bucket ", config.storageRoot);
-    Promise
-    .resolve(getPaths(req.path))
-    .then(headObject)
-    .then(raiseIfObjectExists)
-    .then(storeRequestData)
-    .then(function(){ res.end(); })
-    .catch(FileExists, function(e){ res.status(403).send("File exists"); })
-    .catch(function(e){
-      log.error("error writing file: %j", e);
-      log.error(e.stack);
-      res.status(500).send(e);
-    });
-  } else {
-    Promise
-    .resolve(getPaths(req.path))
-    .then(makeDirectories)
-    .then(storeRequestData)
-    .then(function(){ res.end(); })
-    .catch(FileExists, function(e){ res.status(403).send("File exists"); })
-    .catch(function(e){
-      log.error("error writing file: %j", e);
-      log.error(e.stack);
-      res.status(500).send(e);
-    });
-  }
+
+
+    if (config.usingS3) {
+      log.debug("using s3 bucket ", config.storageRoot);
+      Promise
+      .resolve(getPaths(req.path))
+      .then(headObject)
+      .then(raiseIfObjectExists)
+      .then(storeRequestData)
+      .then(function(){ res.end(); })
+      .catch(FileExists, function(e){ res.status(403).send("File exists"); })
+      .catch(function(e){
+        log.error("error writing file: %j", e);
+        log.error(e.stack);
+        res.status(500).send(e);
+      });
+    } else {
+      Promise
+      .resolve(getPaths(req.path))
+      .then(makeDirectories)
+      .then(storeRequestData)
+      .then(function(){ res.end(); })
+      .catch(FileExists, function(e){ res.status(403).send("File exists"); })
+      .catch(function(e){
+        log.error("error writing file: %j", e);
+        log.error(e.stack);
+        res.status(500).send(e);
+      });
+    }
 });
 
 app.get('*', function(req, res){
