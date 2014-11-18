@@ -26,6 +26,11 @@ if (config.usingS3){
   log.debug("using s3, bucket: ", config.storageRoot);
 }
 
+var app = express();
+
+app.use(connect());
+app.use(morgan('combined'));
+app.use(busboy());
 
 function getPaths(fileName) {
   var filePath = path.join(config.storageRoot, fileName);
@@ -49,9 +54,11 @@ function getFSReadStream(fileName){
 
 function getS3WriteStream(fileName){
   var client = s3Stream(new AWS.S3());
+  console.log("writeStream: ", fileName);
   var options = {Bucket:config.storageRoot, Key:getObjectKeyFromPath(fileName)};
   log.debug("getWriteStream options: ", options);
   var uploadStream = client.upload(options);
+  uploadStream.on('error', log.error);
   return uploadStream;
 }
 function getS3ReadStream(fileName){
@@ -127,7 +134,6 @@ function storeMultipartRequestData(req, res){
     req.pipe(req.busboy);
   };
 }
-
 function storeRawRequestData(req, res){
   return function doStore(paths){
     var metaDataFileStream = getWriteStream(paths.metadata);
@@ -137,7 +143,7 @@ function storeRawRequestData(req, res){
     });
     metaDataFileStream.write(
       JSON.stringify({mimetype:req.get('Content-Type')}),
-      function() { if (metaDataFileStream.close) {metaDataFileStream.close(); }}
+      function() { if (metaDataFileStream.close) {metaDataFileStream.close();} }
     );
 
     dataFileStream = getWriteStream(paths.file);
@@ -150,12 +156,7 @@ function storeRawRequestData(req, res){
   };
 }
 
-var app = express();
-
-app.use(connect());
-app.use(morgan('combined'));
-app.use(busboy());
-
+// respond
 app.post('*', function(req, res){
   var storeRequestData = null;
   var storeIt = null;
@@ -212,13 +213,14 @@ app.get('*', function(req, res){
   }); 
   dataStream.on('error', function(e) {
     res.set('Content-Type', 'text/html');
-    if ( e.code === 'ENOENT' || e.statusCode === 404 ){
+    if ( e.code === 'ENOENT' ){
       res.status(404).send("Resource not found");
     } else {
       log.error(e);
       res.status(500).send("Server error");
     }
   });
+  
 });
 
 
