@@ -77,72 +77,20 @@ if (config.usingS3){
       {Bucket:config.storageRoot, Key:fileName}
     ).createReadStream();
   }
-
-  function headObject(paths){
-    var s3 = new AWS.S3();
-    // the fileName is a full path like structure including the
-    // root, which we're using for our bucket name, so we'll
-    // remove the root from the path as it will be passed later
-    // as 'Bucket'
-    var fileName = paths.file;
-    fileName = fileName.replace(config.storageRoot+"/", "");
-    log.debug("Checking for Object existence: ", fileName);
-    return new Promise(function(resolve, reject){
-      var callback = function(err, data){
-        if (err) { 
-          if (err.statusCode === 403){
-            // ironically, head returns a 403 if you ask for
-            // something that doesn't exist
-            resolve(paths);
-          } else {
-            reject(err);
-          }
-        } else {
-          paths.headResult = data;
-          resolve(paths);
-        }
-      };
-      s3.headObject(
-        {Bucket:config.storageRoot, Key:fileName}
-        ,callback
-      );
-    });
-  }
-
-  function raiseIfObjectExists(paths){
-    log.debug("raiseIfObjectExists");
-    if (paths.headResult){
-      var e = new Error("FileExists");
-      e.code = "EEXIST";
-      throw e;
-    }
-    return Promise.resolve(paths);
-  }
 }
-
-function makeDirectories(paths){
-  // mkdirp returns the name of the directory we created, but
-  // we really want paths as our return so everyone can use it  
-  return mkdirp.mkdirpAsync(paths.dirname).return(paths);
-};
-
-// exception predicate 
-function FileExists(e) { return e.code === "EEXIST"; }
 
 // respond
 app.post('*', function(req, res){
   if (req.is('multipart/form-data')){
-    log.debug("multi part request");
-    var storeRequestData = function(paths){
-      req.busboy.on('finish', function(){ res.end(); });
-      // write files
-      req.busboy.on('file', function(fieldname, file, filename, encoding, mimetype) {
-        file.pipe(getWriteStream(path.join(config.storageRoot, paths.file, filename)));
-      });
-      req.pipe(req.busboy);
-    }
+    req.busboy.on('finish', function(){ res.end(); });
+    // write files
+    req.busboy.on('file', function(fieldname, file, filename, encoding, mimetype) {
+      var paths = getPaths(filename);
+      file.pipe(getWriteStream(paths.file));
+    });
+    req.pipe(req.busboy);
   } else {
-    var storeRequestData = function(paths){
+    function storeRequestData(paths){
       var metaDataFileStream = getWriteStream(paths.metadata);
       var metaDataFileSaved = new Promise(function(resolve, reject){
         metaDataFileStream.on('close', resolve);
@@ -161,15 +109,19 @@ app.post('*', function(req, res){
       req.pipe(dataFileStream);
       return Promise.join(metaDataFileSaved, dataFileSaved);
     }
-  }
 
+    function makeDirectories(paths){
+      // mkdirp returns the name of the directory we created, but
+      // we really want paths as our return so everyone can use it  
+      return mkdirp.mkdirpAsync(paths.dirname).return(paths);
+    };
 
-    if (config.usingS3) {
-      log.debug("using s3 bucket ", config.storageRoot);
+    // exception predicate 
+    function FileExists(e) { return e.code === "EEXIST"; }
+
+    if (config.usingS3){
       Promise
       .resolve(getPaths(req.path))
-      .then(headObject)
-      .then(raiseIfObjectExists)
       .then(storeRequestData)
       .then(function(){ res.end(); })
       .catch(FileExists, function(e){ res.status(403).send("File exists"); })
@@ -191,6 +143,8 @@ app.post('*', function(req, res){
         res.status(500).send(e);
       });
     }
+    
+  }
 });
 
 app.get('*', function(req, res){
@@ -227,5 +181,4 @@ app.get('*', function(req, res){
 var listenPort = process.env.PORT || 3000;
 log.info("starting app " + process.env.APP_NAME);
 log.info("listening on " + listenPort);
-log.debug("Debug logging enabled");
 app.listen(listenPort);
