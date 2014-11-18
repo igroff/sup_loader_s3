@@ -22,7 +22,8 @@
     "mime": "^1.2.11",
     "mkdirp": "^0.5.0",
     "morgan": "1.2.3",
-    "simplog": "0.1.0"
+    "simplog": "0.1.0",
+    "s3-upload-stream": "^1.0.6"
   },
   "devDependencies": {
     "http-server": "^0.6.1",
