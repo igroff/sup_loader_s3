@@ -1,4 +1,4 @@
-var AWS             = require('aws-sdk');
+var aws             = require('aws-sdk');
 var express         = require('express');
 var morgan          = require('morgan');
 var connect         = require('connect');
@@ -11,19 +11,10 @@ var Promise         = require('bluebird');
 var fs              = Promise.promisifyAll(require('fs'));
 var mime            = require('mime');
 var mkdirp          = Promise.promisifyAll(require('mkdirp'));
-var s3Stream        = require('s3-upload-stream');
 
 config = {
   storageRoot: process.env.STORAGE_ROOT || path.join(__dirname, 'files')
 };
-config.usingS3 = config.storageRoot.indexOf("s3://") === 0;
-
-// the s3:// is not required in the bucket name, it's just a 
-// convenient way of telling that we're using s3, so we'll 
-// strip it if appropriate
-if (config.usingS3){
-  config.storageRoot = config.storageRoot.replace(/s3:\/\//,"");
-}
 
 var app = express();
 
@@ -43,20 +34,6 @@ function getWriteStream(fileName){
 }
 function getReadStream(fileName){
   return fs.createReadStream(fileName);
-}
-
-if (config.usingS3){
-  // overwrite our stream methods with s3 specific ones
-  function getWriteStream(fileName){
-    var client = s3Stream(new AWS.S3());
-    var uploadStream = client.upload({Bucket:config.storageRoot, Key:fileName});
-    uploadStream.on('error', log.error);
-    return uploadStream;
-  }
-  function getReadStream(fileName){
-    var s3 = new AWS.S3();
-    s3.getObject({Bucket:config.storageRoot, Key:fileName}).createReadStream();
-  }
 }
 
 // respond
@@ -99,30 +76,17 @@ app.post('*', function(req, res){
     // exception predicate 
     function FileExists(e) { return e.code === "EEXIST"; }
 
-    if (config.usingS3){
-      Promise
-      .resolve(getPaths(req.path))
-      .then(storeRequestData)
-      .then(function(){ res.end(); })
-      .catch(FileExists, function(e){ res.status(403).send("File exists"); })
-      .catch(function(e){
-        log.error("error writing file: %j", e);
-        log.error(e.stack);
-        res.status(500).send(e);
-      });
-    } else {
-      Promise
-      .resolve(getPaths(req.path))
-      .then(makeDirectories)
-      .then(storeRequestData)
-      .then(function(){ res.end(); })
-      .catch(FileExists, function(e){ res.status(403).send("File exists"); })
-      .catch(function(e){
-        log.error("error writing file: %j", e);
-        log.error(e.stack);
-        res.status(500).send(e);
-      });
-    }
+    Promise
+    .resolve(getPaths(req.path))
+    .then(makeDirectories)
+    .then(storeRequestData)
+    .then(function(){ res.end(); })
+    .catch(FileExists, function(e){ res.status(403).send("File exists"); })
+    .catch(function(e){
+      log.error("error writing file: %j", e);
+      log.error(e.stack);
+      res.status(500).send(e);
+    });
     
   }
 });
