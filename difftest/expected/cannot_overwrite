@@ -1,3 +1,2 @@
-rm: ./files/overwriteme: No such file or directory
 HTTP/1.1 200 OK
 HTTP/1.1 403 Forbidden
