@@ -35,13 +35,7 @@ function getPaths(fileName) {
   var filePath = path.join(config.storageRoot, fileName);
   var basename = path.basename(filePath);
   var metaDataFilePath = path.join(config.storageRoot, "." + basename + ".md");
-  return {
-    dirname: path.dirname(filePath),
-    basename: basename,
-    file: filePath,
-    metadata: metaDataFilePath,
-    fileName: fileName
-  };
+  return {dirname: path.dirname(filePath), basename: basename, file: filePath, metadata: metaDataFilePath};
 }
 
 function getWriteStream(fileName){
@@ -55,27 +49,13 @@ if (config.usingS3){
   // overwrite our stream methods with s3 specific ones
   function getWriteStream(fileName){
     var client = s3Stream(new AWS.S3());
-    // the fileName is a full path like structure including the
-    // root, which we're using for our bucket name, so we'll
-    // remove the root from the path as it will be passed later
-    // as 'Bucket'
-    fileName = fileName.replace(config.storageRoot+"/", "");
-    var uploadStream = client.upload(
-      {Bucket:config.storageRoot, Key:fileName}
-    );
+    var uploadStream = client.upload({Bucket:config.storageRoot, Key:fileName});
     uploadStream.on('error', log.error);
     return uploadStream;
   }
   function getReadStream(fileName){
     var s3 = new AWS.S3();
-    // the fileName is a full path like structure including the
-    // root, which we're using for our bucket name, so we'll
-    // remove the root from the path as it will be passed later
-    // as 'Bucket'
-    fileName = fileName.replace(config.storageRoot+"/", "");
-    return s3.getObject(
-      {Bucket:config.storageRoot, Key:fileName}
-    ).createReadStream();
+    s3.getObject({Bucket:config.storageRoot, Key:fileName}).createReadStream();
   }
 }
 
