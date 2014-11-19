@@ -1,6 +1,6 @@
 #! /usr/bin/env bash
 # vi:ft=sh
-[ -r ./files ] && [ -r ./files/overwiteme ] && rm ./files/overwriteme
+curl -s http://${TEST_HOST}/overwriteme -X DELETE
 curl -s -i http://${TEST_HOST}/overwriteme --data 'blue jeans' | grep -E -e 'HTTP/1.1 200 OK'
 curl -s -i http://${TEST_HOST}/overwriteme --data 'blue jeans' | grep -E -e 'HTTP/1.1 403 Forbidden'
 
