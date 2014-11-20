@@ -26,10 +26,11 @@ function getReadStream(objectKey){
   var s3 = new AWS.S3();
   var options = {Bucket:config.bucket, Key:objectKey};
   log.debug("getObject options: ", options);
+  var request = s3.getObject(options);
   return new Promise(function (resolve, reject){
-    s3.getObject(options, function(err, data){
+    request.send(function(err, data){
       if (err) { reject(err); }
-      else{ resolve(data); }
+      else{ resolve([request, data]); }
     }); 
   })
 }
@@ -127,12 +128,15 @@ app.post('*', function(req, res){
 
 app.get('*', function(req, res){
   getReadStream(req.path)
-  .then(function(data){
+  .spread(function(request, data){
     res.set('Content-Type', data.ContentType);
-    data.Body.pipe(res);
+    var dataStream = request.createReadStream();
+    dataStream.pipe(res);
+    log.debug(dataStream);
+    log.debug("response piped");
   })
   .catch(function(e){
-    log.error(e);
+    log.error(e.stack);
     res.status(500).send("Error getting file");
   });
 });
