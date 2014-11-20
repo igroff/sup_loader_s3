@@ -26,7 +26,12 @@ function getReadStream(objectKey){
   var s3 = new AWS.S3();
   var options = {Bucket:config.bucket, Key:objectKey};
   log.debug("getObject options: ", options);
-  return s3.getObject(options).createReadStream();
+  return new Promise(function (resolve, reject){
+    s3.getObject(options, function(err, data){
+      if (err) { reject(err); }
+      else{ resolve(data); }
+    }); 
+  })
 }
 
 function checkForObject(objectKey){
@@ -58,7 +63,7 @@ function raiseIfObjectExists(exists){
     e.code = "EEXIST";
     throw e;
   }
-  return Promise.resolve(paths);
+  return Promise.resolve();
 }
   
 function FileExists(e) { return e.code === "EEXIST"; }
@@ -76,23 +81,17 @@ function storeMultipartRequestData(req, res){
 
 function storeRawRequestData(req, res){
   return function doStore(paths){
-    var metaDataFileStream = getWriteStream(paths.metadata);
-    var metaDataFileSaved = new Promise(function(resolve, reject){
-      metaDataFileStream.on('close', resolve);
-      metaDataFileStream.on('error', reject);
-    });
-    metaDataFileStream.write(
-      JSON.stringify({mimetype:req.get('Content-Type')}),
-      function() { if (metaDataFileStream.close) {metaDataFileStream.close(); }}
-    );
-
-    dataFileStream = getWriteStream(paths.file);
+    var client = s3Stream(new AWS.S3());
+    var options = {Bucket:config.bucket
+      , Key:req.path
+      , ContentType: req.get('Content-Type')};
+    var uploadStream = client.upload(options);
     dataFileSaved = new Promise(function(resolve, reject){
-      dataFileStream.on('close', resolve);
-      dataFileStream.on('error', reject);
+      uploadStream.on('close', resolve);
+      uploadStream.on('error', reject);
     }); 
-    req.pipe(dataFileStream);
-    return Promise.join(metaDataFileSaved, dataFileSaved);
+    req.pipe(uploadStream);
+    return dataFileSaved;
   };
 }
 
@@ -127,20 +126,14 @@ app.post('*', function(req, res){
 });
 
 app.get('*', function(req, res){
-  var filePath = getPaths(req.path);
-  // we try and read our metadata so we can set the content type on the
-  // response
-  var dataStream = getReadStream(paths.file);
-  res.set('Content-Type', JSON.parse(metaData.join('')).mimetype);
-  dataStream.pipe(res);
-  dataStream.on('error', function(e) {
-    res.set('Content-Type', 'text/html');
-    if ( e.code === 'ENOENT' || e.statusCode === 404 ){
-      res.status(404).send("Resource not found");
-    } else {
-      log.error(e);
-      res.status(500).send("Server error");
-    }
+  getReadStream(req.path)
+  .then(function(data){
+    res.set('Content-Type', data.ContentType);
+    data.Body.pipe(res);
+  })
+  .catch(function(e){
+    log.error(e);
+    res.status(500).send("Error getting file");
   });
 });
 
