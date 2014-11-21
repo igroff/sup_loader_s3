@@ -22,18 +22,6 @@ function getWriteStream(objectKey){
   var uploadStream = client.upload(options);
   return uploadStream;
 }
-function getReadStream(objectKey){
-  var s3 = new AWS.S3();
-  var options = {Bucket:config.bucket, Key:objectKey};
-  log.debug("getObject options: ", options);
-  var request = s3.getObject(options);
-  return new Promise(function (resolve, reject){
-    request.send(function(err, data){
-      if (err) { reject(err); }
-      else{ resolve([request, data]); }
-    }); 
-  })
-}
 
 function checkForObject(objectKey){
   var s3 = new AWS.S3();
