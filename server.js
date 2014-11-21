@@ -55,7 +55,7 @@ function checkForObject(objectKey){
 function FileExists(e) { return e.message === "FileExists"; }
 
 function storeMultipartRequestData(req, res){
-  return function doStore(paths){
+  return function doStoreMultipart(paths){
     log.debug('storeMultipartRequestData');
     req.busboy.on('finish', function(){ res.end(); });
     // write files
@@ -67,12 +67,12 @@ function storeMultipartRequestData(req, res){
 }
 
 function storeRawRequestData(req, res){
-  return function doStore(){
+  return function doStoreRaw(){
     log.debug('storeRawRequestData');
     var client = s3Stream(new AWS.S3());
-    var options = {Bucket:config.bucket
-      , Key: keyFromPath(req.path)
-      , Metadata: {ContentType: req.get('Content-Type')}};
+    var options = {Bucket:config.bucket,
+      Key: keyFromPath(req.path),
+      Metadata: {ContentType: req.get('Content-Type')}};
     // this is just for testing and allows us to skip the writing of the 
     // content type so that we can trigger the outbound 'auto detection' of
     // content type based on the file name
