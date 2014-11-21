@@ -43,7 +43,7 @@ function checkForObject(objectKey){
           reject(err);
         }
       } else {
-        resolve(true);
+        reject(new Error("FileExists"));
       }
     };
     var options = {Bucket:config.bucket, Key:objectKey};
@@ -51,19 +51,8 @@ function checkForObject(objectKey){
     s3.headObject(options ,callback);
   });
 }
-
-function raiseIfObjectExists(exists){
-  log.debug("raiseIfObjectExists");
-  if (exists){
-    var e = new Error("FileExists");
-    e.code = "EEXIST";
-    return Promise.reject(e);
-  } else { 
-    return Promise.resolve();
-  }
-}
   
-function FileExists(e) { return e.code === "EEXIST"; }
+function FileExists(e) { return e.message === "FileExists"; }
 
 function storeMultipartRequestData(req, res){
   return function doStore(paths){
@@ -118,7 +107,6 @@ app.post('*', function(req, res){
   Promise
   .resolve(keyFromPath(req.path))
   .then(checkForObject)
-  .then(raiseIfObjectExists)
   .then(storeRequestData)
   .then(function(){ res.end(); })
   .catch(FileExists, function(e){ res.status(403).send("File exists"); })
