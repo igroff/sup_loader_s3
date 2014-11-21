@@ -62,15 +62,17 @@ function raiseIfObjectExists(exists){
   if (exists){
     var e = new Error("FileExists");
     e.code = "EEXIST";
-    throw e;
+    return Promise.reject(e);
+  } else { 
+    return Promise.resolve();
   }
-  return Promise.resolve();
 }
   
 function FileExists(e) { return e.code === "EEXIST"; }
 
 function storeMultipartRequestData(req, res){
   return function doStore(paths){
+    log.debug('storeMultipartRequestData');
     req.busboy.on('finish', function(){ res.end(); });
     // write files
     req.busboy.on('file', function(fieldname, file, filename, encoding, mimetype) {
@@ -81,14 +83,15 @@ function storeMultipartRequestData(req, res){
 }
 
 function storeRawRequestData(req, res){
-  return function doStore(paths){
+  return function doStore(){
+    log.debug('storeRawRequestData');
     var client = s3Stream(new AWS.S3());
     var options = {Bucket:config.bucket
-      , Key:req.path
+      , Key: req.path
       , ContentType: req.get('Content-Type')};
     var uploadStream = client.upload(options);
     dataFileSaved = new Promise(function(resolve, reject){
-      uploadStream.on('close', resolve);
+      uploadStream.on('uploaded', resolve);
       uploadStream.on('error', reject);
     }); 
     req.pipe(uploadStream);
@@ -127,24 +130,23 @@ app.post('*', function(req, res){
 });
 
 app.get('*', function(req, res){
-  getReadStream(req.path)
-  .spread(function(request, data){
-    res.set('Content-Type', data.ContentType);
-    var dataStream = request.createReadStream();
-    dataStream.pipe(res);
-    log.debug(dataStream);
-    log.debug("response piped");
-  })
-  .catch(function(e){
-    log.error(e.stack);
-    res.status(500).send("Error getting file");
+  var s3 = new AWS.S3();
+  var options = {Bucket:config.bucket, Key:req.path};
+  log.debug("getObject options: ", options);
+  s3.headObject(options, function(err, data){
+    var contentType = (data.MetaData && data.MetaData['Content-Type']) ||
+      data.ContentType ||
+      mime.lookup(options.Key)
+    res.set('Content-Type', contentType);
+    s3.getObject(options).createReadStream().pipe(res);
   });
 });
 
 app.delete('*', function(req, res){
   var s3 = new AWS.S3();
+  var options = {Bucket:config.bucket, Key:req.path};
   s3.deleteObject(options, function(err, data){
-    res.status(err.statusCode).send(err || {});
+    res.status((err && err.statusCode) || 200).send(err || null);
   });
 });
 
