@@ -134,11 +134,19 @@ app.get('*', function(req, res){
   var options = {Bucket:config.bucket, Key:req.path};
   log.debug("getObject options: ", options);
   s3.headObject(options, function(err, data){
-    var contentType = (data.MetaData && data.MetaData['Content-Type']) ||
-      data.ContentType ||
-      mime.lookup(options.Key)
-    res.set('Content-Type', contentType);
-    s3.getObject(options).createReadStream().pipe(res);
+    if (err) {
+      if (err.statusCode === 404){
+        res.status(404).send("Resource not found");
+      } else {
+        log.error(err);
+      }
+    } else {
+      var contentType = (data.MetaData && data.MetaData['Content-Type']) ||
+        data.ContentType ||
+        mime.lookup(options.Key)
+      res.set('Content-Type', contentType);
+      s3.getObject(options).createReadStream().pipe(res);
+    }
   });
 });
 
