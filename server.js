@@ -151,6 +151,7 @@ app.delete('*', function(req, res){
 
 if (!config.bucket){
   log.error("invalid configuration, no bucket specified");
+  process.exit(1);
 }
 
 var listenPort = process.env.PORT || 3000;
