@@ -73,7 +73,9 @@ function storeRawRequestData(req, res){
     var options = {Bucket:config.bucket
       , Key: keyFromPath(req.path)
       , Metadata: {ContentType: req.get('Content-Type')}};
-    // this is just for testing
+    // this is just for testing and allows us to skip the writing of the 
+    // content type so that we can trigger the outbound 'auto detection' of
+    // content type based on the file name
     if (req.param("nomd")){
       delete(options.Metadata.ContentType);
     }
