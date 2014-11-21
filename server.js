@@ -23,6 +23,13 @@ function getWriteStream(objectKey){
   return uploadStream;
 }
 
+function keyFromPath(path){
+  if (path.indexOf("/") === 0){
+    return path.substring(1);
+  }
+  return path;
+}
+
 function checkForObject(objectKey){
   var s3 = new AWS.S3();
   return new Promise(function(resolve, reject){
@@ -75,7 +82,7 @@ function storeRawRequestData(req, res){
     log.debug('storeRawRequestData');
     var client = s3Stream(new AWS.S3());
     var options = {Bucket:config.bucket
-      , Key: req.path
+      , Key: keyFromPath(req.path)
       , Metadata: {ContentType: req.get('Content-Type')}};
     // this is just for testing
     if (req.param("nomd")){
@@ -109,7 +116,7 @@ app.post('*', function(req, res){
   }
 
   Promise
-  .resolve(req.path)
+  .resolve(keyFromPath(req.path))
   .then(checkForObject)
   .then(raiseIfObjectExists)
   .then(storeRequestData)
@@ -124,7 +131,7 @@ app.post('*', function(req, res){
 
 app.get('*', function(req, res){
   var s3 = new AWS.S3();
-  var options = {Bucket:config.bucket, Key:req.path};
+  var options = {Bucket:config.bucket, Key:keyFromPath(req.path)};
   log.debug("getObject options: ", options);
   s3.headObject(options, function(err, data){
     if (err) {
@@ -146,7 +153,7 @@ app.get('*', function(req, res){
 
 app.delete('*', function(req, res){
   var s3 = new AWS.S3();
-  var options = {Bucket:config.bucket, Key:req.path};
+  var options = {Bucket:config.bucket, Key:keyFromPath(req.path)};
   s3.deleteObject(options, function(err, data){
     res.status((err && err.statusCode) || 200).send(err || null);
   });
