@@ -88,7 +88,12 @@ function storeRawRequestData(req, res){
     var client = s3Stream(new AWS.S3());
     var options = {Bucket:config.bucket
       , Key: req.path
-      , ContentType: req.get('Content-Type')};
+      , Metadata: {ContentType: req.get('Content-Type')}};
+    // this is just for testing
+    if (req.param("nomd")){
+      delete(options.Metadata.ContentType);
+    }
+    log.debug("s3 options: %j", options);
     var uploadStream = client.upload(options);
     dataFileSaved = new Promise(function(resolve, reject){
       uploadStream.on('uploaded', resolve);
@@ -141,9 +146,10 @@ app.get('*', function(req, res){
         log.error(err);
       }
     } else {
-      var contentType = (data.MetaData && data.MetaData['Content-Type']) ||
-        data.ContentType ||
-        mime.lookup(options.Key)
+      /// nice the 'string map' of metadata is lowercased for us... helpful
+      var contentType = (data.Metadata && data.Metadata.contenttype) ||
+        mime.lookup(options.Key);
+      log.debug("Metdata: %j", data.Metadata);
       res.set('Content-Type', contentType);
       s3.getObject(options).createReadStream().pipe(res);
     }

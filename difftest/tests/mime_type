@@ -1,4 +1,5 @@
 #! /usr/bin/env bash
 # vi:ft=sh
+curl -s http://${TEST_HOST}/fake_movie.mov -X DELETE
 curl -s http://${TEST_HOST}/fake_movie.mov?nomd=true --data "stuff in a movie"
 curl -s -i http://${TEST_HOST}/fake_movie.mov | grep -E -e 'Content-Type: video/quicktime' -e 'HTTP/1.1 200 OK'

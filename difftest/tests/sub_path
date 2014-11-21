@@ -1,5 +1,6 @@
 #! /usr/bin/env bash
 # vi:ft=sh
+curl -s http://${TEST_HOST}/this/goes/ina/subdir/pants.txt -X DELETE
 curl -s -i http://${TEST_HOST}/this/goes/ina/subdir/pants.txt --data 'blue jeans' | grep -e 'HTTP/1.1 200 OK'
 curl -s -i http://${TEST_HOST}/this/goes/ina/subdir/pants.txt | grep -E -e 'HTTP/1.1 200 OK' -e 'blue jeans'
 

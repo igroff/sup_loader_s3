@@ -1,3 +1,4 @@
 #! /usr/bin/env bash
+curl -s http://${TEST_HOST}/uploaded_thing -X DELETE
 curl -s http://${TEST_HOST}/uploaded_thing --data 'this goes inside'
 curl -s -v  http://${TEST_HOST}/uploaded_thing 2>&1 | grep -e Content-Type -e 'this goes inside'
