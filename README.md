@@ -10,13 +10,13 @@ efficient retrieval of files.
 
 The root of this interface is the name of the file so...
 
-##### GET /<file name>
+##### GET /\<file name\>
 
 Retrieves the file specified by <file_name>, returning the appropriate 
 mimetype for the file.
 
-##### POST /<file name> 
-Stores data provided in the request as <file name>.
+##### POST /\<file name\> 
+Stores data provided in the request as \<file name\>.
 
 There are two ways to POST data to the api; as a multi-part request
 or not.
@@ -39,8 +39,8 @@ be returned to the caller
 Any attempts to write data over an existing file will fail, returning
 a 403 to the caller.
 
-##### DELETE /<file name>
-Removes the file (if any) specified by <file name>.
+##### DELETE /\<file name\>
+Removes the file (if any) specified by \<file name\>.
 
 In the event of successful deletion of the specified file, a response
 of status 200 will be returned to the caller.
