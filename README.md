@@ -6,6 +6,16 @@ The important thing here is a consistent interface for uploading and
 retrieval of files.  It's designed to allow upload, and provide a 
 efficient retrieval of files.
 
+### Configuration
+
+All of the configuration of this thing is done via environment variables
+and the following are required.
+
+* `BUCKET` - The name of the S3 bucket where any POSTed files will be
+stored, and from which GET-ed(?) files will be retrieved.
+* `AWS_ACCESS_KEY_ID & AWS_SECRET_ACCESS_KEY` - The AWS credentials allowing
+access to the BUCKET provided.
+
 #### Interface
 
 The root of this interface is the name of the file so...
